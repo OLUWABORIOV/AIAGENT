@@ -1,0 +1,57 @@
+# docker-compose.prod.yml — Production overrides
+#
+# TEACHING NOTE — Compose file layering:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+#   The prod file OVERRIDES specific fields from the base file.
+#   Fields not mentioned here are inherited from docker-compose.yml.
+#   This keeps prod-specific config separate without duplicating everything.
+#
+# TEACHING NOTE — Key prod differences:
+#   - No volume mounts (no hot reload — code is baked into the image)
+#   - DEBUG=false → JSON logs, not pretty coloured output
+#   - More worker replicas
+#   - Resource limits to prevent one container starving others
+#   - No exposed Redis port (internal only — not accessible from outside)
+#   - restart: always (restart on crash, even at docker daemon startup)
+
+services:
+  api:
+    environment:
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes: [] # no hot reload — use the image's baked-in code
+    restart: always
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+
+  worker:
+    environment:
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes: []
+    restart: always
+    deploy:
+      # Workers need more resources — they run LLM inference
+      replicas: 4
+      resources:
+        limits:
+          memory: 1G # LangGraph state + response buffers can be large
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+
+  redis:
+    # Don't expose Redis port publicly in production
+    ports: []
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M

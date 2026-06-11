@@ -1,0 +1,14 @@
+# Environments
+.env
+.env.*
+.venv/
+
+# Frontend dependencies & builds
+agent_dashboard/node_modules/
+agent_dashboard/dist/
+agent_dashboard/build/
+
+# Backend dependencies & caches
+agent_service/__pycache__/
+agent_service/venv/
+agent_service/.pytest_cache/

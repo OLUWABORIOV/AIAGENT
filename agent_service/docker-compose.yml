@@ -1,0 +1,45 @@
+# docker-compose.yml (local dev)
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - API_KEYS=${API_KEYS}
+      - DEBUG=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app # hot reload in dev
+
+  worker:
+    build: .
+    command: python -m arq app.worker.WorkerSettings
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2 # run 2 worker processes
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
