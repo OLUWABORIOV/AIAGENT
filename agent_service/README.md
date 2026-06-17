@@ -1,8 +1,55 @@
 # LLM Agent Service
 
-Production-ready FastAPI service for running LLM agents asynchronously.
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green?logo=fastapi)
+![Tests](https://img.shields.io/badge/tests-16%20passing-brightgreen)
+![Docker](https://img.shields.io/badge/Docker-ready-blue?logo=docker)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Stack:** FastAPI · LangGraph · arq · Redis · Docker · Gemini
+> A production-grade async API service that runs LLM agents in the background. Submit a question, get a job ID back in under 50ms, poll for the result when Gemini is done. Built by **Oluwabori Odeyale** self-taught AI Backend Engineer, Lagos, Nigeria.
+
+---
+
+## What This Project Does
+
+Most LLM demos call an AI model directly inside a web request and hope it responds in time. This project solves the real production problem: **LLM agents take 30–120 seconds far too long to block an HTTP connection.**
+
+The solution is a **decoupled async architecture**:
+
+1. A client POSTs a question → gets a `job_id` back in **under 50ms**
+2. The agent runs in a **background worker process** (LangGraph + Gemini)
+3. The result is stored in **Redis** when ready
+4. The client polls `GET /v1/agent/jobs/{id}` until `status: completed`
+
+This is the same pattern used by OpenAI's Batch API, Stripe's async payments, and any production system that does slow work without blocking the user.
+
+**What it handles out of the box:**
+
+- ✅ API key authentication on every route
+- ✅ Per-user concurrent job limiting (rate limiting via Redis)
+- ✅ Per-job token and cost tracking (input/output tokens → USD)
+- ✅ Automatic job timeout and cost cap enforcement
+- ✅ Structured JSON logging with request IDs for full traceability
+- ✅ Horizontal worker scaling add more workers with one command
+- ✅ 16 automated tests covering auth, rate limiting, agent logic, and schemas
+
+---
+
+## Stack
+
+| Layer                | Technology                                  | Purpose                                          |
+| -------------------- | ------------------------------------------- | ------------------------------------------------ |
+| **Language**         | Python 3.12                                 | Async-native, richest AI ecosystem               |
+| **API Framework**    | FastAPI + Uvicorn                           | Async HTTP, auto-validation, auto-docs           |
+| **Agent Framework**  | LangGraph                                   | State machine for the ReAct agent loop           |
+| **LLM Provider**     | Google Gemini API                           | 1M token context window, competitive pricing     |
+| **Job Queue**        | arq                                         | Async Redis queue — jobs survive worker restarts |
+| **Storage**          | Redis                                       | Job queue + result store + rate limit counters   |
+| **Containerisation** | Docker + Docker Compose                     | API + worker + Redis in one command              |
+| **Validation**       | Pydantic v2                                 | Request/response schemas, settings from .env     |
+| **Testing**          | pytest + pytest-asyncio + httpx + AsyncMock | 16 tests, no real infrastructure needed          |
+| **Logging**          | structlog                                   | Structured JSON logs with request ID correlation |
+| **Observability**    | Langfuse / LangSmith                        | LLM tracing, token usage, cost per run           |
 
 ---
 
@@ -29,10 +76,22 @@ Gemini API
 
 ---
 
+## Prerequisites
+
+Make sure you have these installed before starting:
+
+- **Python 3.11+** — python.org
+- **Docker Desktop** — docker.com/products/docker-desktop
+- **Gemini API Key** — aistudio.google.com → Get API key (free tier available)
+
+---
+
 ## Quick Start
 
 ```bash
 # 1. Clone and configure
+git clone https://github.com/OLUWABORIOV/agent_service.git
+cd agent_service
 cp .env.example .env
 # Edit .env — add your GEMINI_API_KEY
 
@@ -50,6 +109,8 @@ curl -X POST http://localhost:8000/v1/agent/run \
 # 5. Poll for result (replace JOB_ID with the id from step 4)
 curl http://localhost:8000/v1/agent/jobs/JOB_ID
 ```
+
+Open **http://localhost:8000/docs** in your browser for the interactive API documentation.
 
 ---
 
@@ -74,8 +135,8 @@ agent_service/
 ├── scripts/
 │   └── client.py      # Example client (submit + poll)
 ├── Dockerfile
-├── docker-compose.yml          # Local dev
-├── docker-compose.prod.yml     # Production overrides
+├── docker-compose.yml
+├── docker-compose.prod.yml
 ├── pyproject.toml
 └── .env.example
 ```
@@ -173,7 +234,7 @@ pytest tests/test_agent.py::TestRunAgent::test_cost_is_calculated_correctly -v
 # Deploy with production settings
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
-# Scale workers (e.g., when load increases)
+# Scale workers
 docker compose up -d --scale worker=8
 
 # View logs
@@ -212,7 +273,49 @@ LLM agents can take 30–120 seconds. Blocking an HTTP connection that long fail
 arq is built on asyncio — same mental model as FastAPI. No separate broker format. Jobs are plain async Python functions.
 
 **Why two Redis clients?**
-`aioredis` for our job state (clean get/set/expire). arq pool for its own queue protocol. Same Redis server, different usage patterns.
+`aioredis` for job state (clean get/set/expire). arq pool for its own queue protocol. Same Redis server, different usage patterns.
 
 **Why fakeredis in tests?**
 Fast, isolated, no infrastructure needed. Each test gets a fresh instance. CI works without any real Redis.
+
+See TRADEOFFS.md for the full architecture decision record — every technology choice, what was rejected, and why.
+
+---
+
+## What I Learned
+
+This project was built as a deep dive into production AI engineering patterns. Coming from an English Language background with no formal CS training, every concept here was learned by building, breaking, and rebuilding.
+
+**The biggest technical lessons:**
+
+**Async Python is not optional for AI services.** The first version blocked on every LLM call. Under any concurrent load it collapsed immediately. Rebuilding around asyncio, arq, and non-blocking Redis operations was the most impactful architectural change — and the most educational.
+
+**Mocking is a skill, not a shortcut.** Writing 16 tests without real Redis or a real LLM forced me to deeply understand what each component actually does and what contract it exposes. AsyncMock for async Redis operations, ASGITransport for in-process HTTP requests, and @patch for the Gemini client — each mock taught me more about the thing it was replacing than using the real thing did.
+
+**Production patterns are not about complexity — they are about failure modes.** Every design decision came down to one question: what happens when this fails? The queue survives API restarts. Separate workers survive crashes. Typed state catches bugs at definition time. Middleware cannot be accidentally omitted.
+
+**The gap between "it works" and "it is reliable" is enormous.** Getting an LLM to respond to a question took an afternoon. Making that reliable under load, with proper error handling, cost controls, auth, rate limiting, structured logging, and automated tests took weeks. That gap is production engineering.
+
+**What I would do differently:**
+
+- Add WebSocket support for real-time streaming instead of polling
+- Persistent job history in PostgreSQL alongside the Redis TTL store
+- A proper CI/CD pipeline (GitHub Actions) running tests on every push
+- Evaluation pipeline (RAGAS + LLM-as-judge) integrated into the test suite
+
+---
+
+## Author
+
+**Oluwabori Odeyale** — AI Backend Engineer
+Self-taught · Lagos, Nigeria · Building production AI systems from scratch
+
+- GitHub: github.com/OLUWABORIOV
+- LinkedIn: linkedin.com/in/oluwabori-odeyale
+- Email: odeyaleoluwabori@gmail.com
+
+---
+
+## License
+
+MIT — use freely, attribution appreciated.
