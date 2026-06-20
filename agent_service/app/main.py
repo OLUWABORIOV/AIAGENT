@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     await app.state.redis.close()
     await app.state.arq.close()
 
-# ── App ───────────────────────────────────────────────────────────────────────
+# ── App 
 app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
