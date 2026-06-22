@@ -17,10 +17,10 @@ async def run_agent_job(
     user_id: str,
     documents: list[str],
 ):
-    """
-    This function runs inside the arq worker process.
-    It updates job status in Redis throughout.
-    """
+    
+    #This function runs inside the arq worker process.
+    #It updates job status in Redis throughout.
+    
     redis: ArqRedis = ctx["redis"]
 
     async def set_status(status: JobStatus, **extra):
