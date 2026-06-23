@@ -4,7 +4,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-
+#API IMPORT
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     await app.state.redis.close()
     await app.state.arq.close()
 
-# ── App 
+# ── App python hello.py
 app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
