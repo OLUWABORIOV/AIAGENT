@@ -1,5 +1,5 @@
 const API_KEY = "dev-key-123";
-const BASE = ""; // empty = same origin (proxied by Vite to localhost:8000)
+const BASE = import.meta.env.VITE_API_URL || "";
 
 const headers = {
   "Content-Type": "application/json",
@@ -7,7 +7,7 @@ const headers = {
 };
 
 export async function getHealth() {
-  const res = await fetch("/health", { headers });
+  const res = await fetch(`${BASE}/health`, { headers });
   if (!res.ok) throw new Error("Health check failed");
 
   const body = await res.text();
@@ -19,7 +19,7 @@ export async function getHealth() {
 }
 
 export async function submitJob({ question, user_id, documents = [] }) {
-  const res = await fetch("/v1/agent/run", {
+  const res = await fetch(`${BASE}/v1/agent/run`, {
     method: "POST",
     headers,
     body: JSON.stringify({ question, user_id, documents }),
@@ -32,12 +32,14 @@ export async function submitJob({ question, user_id, documents = [] }) {
 }
 
 export async function getJob(job_id) {
-  const res = await fetch(`/v1/agent/jobs/${job_id}`, { headers });
+  const res = await fetch(`${BASE}/v1/agent/jobs/${job_id}`, { headers });
   if (!res.ok) throw new Error("Job not found");
   return res.json();
 }
 
 export async function listUserJobs(user_id) {
-  const res = await fetch(`/v1/agent/jobs?user_id=${user_id}`, { headers });
+  const res = await fetch(`${BASE}/v1/agent/jobs?user_id=${user_id}`, {
+    headers,
+  });
   return res.json();
 }
