@@ -1,298 +1,202 @@
-export default function Dashboard({
-  stats = { total: 0, completed: 0, active: 0, cost: 0 },
-}) {
-  const cards = [
-    {
-      label: "Total jobs",
-      value: stats.total,
-      icon: "ti-chart-bar",
-      color: "var(--blue)",
-      bg: "rgba(74,158,255,0.12)",
-    },
-    {
-      label: "Completed",
-      value: stats.completed,
-      icon: "ti-circle-check",
-      color: "var(--accent)",
-      bg: "rgba(31,200,130,0.12)",
-    },
-    {
-      label: "Active",
-      value: stats.active,
-      icon: "ti-loader",
-      color: "var(--purple)",
-      bg: "rgba(155,127,255,0.12)",
-    },
-    {
-      label: "Total cost",
-      value: `$${Number(stats.cost).toFixed(4)}`,
-      icon: "ti-coin",
-      color: "var(--amber)",
-      bg: "rgba(245,166,35,0.12)",
-      accent: true,
-    },
-  ];
+import React from "react";
+import StatusPill from "./StatusPill";
 
-  const routes = [
-    { method: "GET", path: "/health", desc: "Health check" },
-    { method: "POST", path: "/v1/agent/run", desc: "Run agent" },
-    { method: "GET", path: "/v1/agent/jobs/{id}", desc: "Get job" },
-    { method: "GET", path: "/v1/agent/jobs", desc: "List jobs" },
+const routes = [
+  {
+    method: "GET",
+    path: "/health",
+    label: "Service health",
+    detail: "Status and API version",
+    access: "Public",
+  },
+  {
+    method: "POST",
+    path: "/v1/agent/run",
+    label: "Submit a task",
+    detail: "Queues work · returns 202",
+    access: "API key",
+  },
+  {
+    method: "GET",
+    path: "/v1/agent/jobs/{job_id}",
+    label: "Check task result",
+    detail: "Status, answer and usage",
+    access: "API key",
+  },
+  {
+    method: "GET",
+    path: "/v1/agent/jobs?user_id=…",
+    label: "Count active tasks",
+    detail: "Count only · not task history",
+    access: "API key",
+  },
+];
+
+function formatTime(timestamp) {
+  if (!timestamp) return "Just now";
+  const elapsed = Math.max(0, Date.now() - timestamp);
+  if (elapsed < 60_000) return "Just now";
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
+  return `${Math.floor(elapsed / 3_600_000)}h ago`;
+}
+
+export default function Dashboard({
+  jobs = [],
+  apiStatus = "offline",
+  onSubmit,
+  onHistory,
+}) {
+  const completed = jobs.filter((job) => job.status === "completed").length;
+  const active = jobs.filter(
+    (job) => job.status === "running" || job.status === "queued",
+  ).length;
+  const cost = jobs.reduce((total, job) => total + (Number(job.cost_usd) || 0), 0);
+  const stats = [
+    { label: "Tasks this visit", value: jobs.length, icon: "ti-stack-2" },
+    { label: "Completed", value: completed, icon: "ti-circle-check" },
+    { label: "In progress", value: active, icon: "ti-loader-2" },
+    { label: "Spend this visit", value: `$${cost.toFixed(4)}`, icon: "ti-coin" },
   ];
+  const recentJobs = jobs.slice(0, 4);
 
   return (
-    <div
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      {/* Stat cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
-          gap: 1,
-          background: "var(--border)",
-          borderBottom: "0.5px solid var(--border)",
-          flexShrink: 0,
-        }}
-      >
-        {cards.map((c) => (
-          <div
-            key={c.label}
-            style={{
-              background: "var(--bg-base)",
-              padding: "14px 16px 12px",
-              position: "relative",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 500,
-                color: "var(--text-muted)",
-                letterSpacing: "0.07em",
-                textTransform: "uppercase",
-                marginBottom: 6,
-              }}
-            >
-              {c.label}
-            </div>
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 400,
-                lineHeight: 1,
-                color: c.accent ? "var(--accent)" : "var(--text-primary)",
-              }}
-            >
-              {c.value}
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                top: 12,
-                right: 12,
-                width: 26,
-                height: 26,
-                borderRadius: 6,
-                background: c.bg,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <i
-                className={`ti ${c.icon}`}
-                style={{ fontSize: 13, color: c.color }}
-              />
-            </div>
+    <div className="dashboard-page">
+      <header className="page-heading">
+        <div>
+          <span className="eyebrow">YOUR WORKSPACE</span>
+          <h1>Good work starts here.</h1>
+          <p>Give your agent a task. Follow its progress. Keep moving.</p>
+        </div>
+        <button className="button button-primary" onClick={onSubmit}>
+          <i className="ti ti-plus" aria-hidden="true" />
+          Start a new task
+        </button>
+      </header>
+
+      <section className="agent-hero" aria-label="Agent introduction">
+        <div className="hero-copy">
+          <div className="hero-kicker">
+            <span className={`health-dot ${apiStatus}`} />
+            {apiStatus === "online" ? "YOUR AGENT IS READY" : "AGENT CONNECTION"}
           </div>
+          <h2>A little focus.<br />A lot more done.</h2>
+          <p>
+            Send a question or task to your AI agent and let it work quietly in
+            the background.
+          </p>
+          <button className="button button-cream" onClick={onSubmit}>
+            Talk to your agent <i className="ti ti-arrow-up-right" aria-hidden="true" />
+          </button>
+        </div>
+        <img
+          className="agent-art"
+          src="/agent-mark.png"
+          alt="Moonlit tree and crimson field emblem"
+        />
+        <div className="hero-note">
+          <span className="hero-note-label">SERVICE STATUS</span>
+          <strong>{apiStatus === "online" ? "All systems ready" : "Waiting for connection"}</strong>
+          <span>Health check · every 10 seconds</span>
+        </div>
+      </section>
+
+      <section className="stats-grid" aria-label="Session overview">
+        {stats.map((stat, index) => (
+          <article className={`stat-card stat-card-${index + 1}`} key={stat.label}>
+            <div className="stat-icon"><i className={`ti ${stat.icon}`} aria-hidden="true" /></div>
+            <span className="stat-label">{stat.label}</span>
+            <strong className="stat-value">{stat.value}</strong>
+          </article>
         ))}
-      </div>
+      </section>
 
-      {/* Info + Routes */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          flex: 1,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 18px",
-            borderRight: "0.5px solid var(--border)",
-            overflowY: "auto",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 500,
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.07em",
-              marginBottom: 12,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <i className="ti ti-info-circle" style={{ fontSize: 13 }} /> Service
-            info
-          </div>
-          {[
-            {
-              k: "Base URL",
-              v: "http://localhost:8000",
-              style: { color: "var(--accent)" },
-            },
-            { k: "API key", v: "dev-key-123" },
-            { k: "Model", v: "claude-sonnet-4", pill: "purple" },
-            { k: "Queue", v: "Redis + aio", pill: "amber" },
-            { k: "Workers", v: "2 processes" },
-            {
-              k: "Avg response",
-              v: "—",
-              style: { color: "var(--text-muted)" },
-            },
-          ].map((row) => (
-            <div
-              key={row.k}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "7px 0",
-                borderBottom: "0.5px solid var(--border)",
-              }}
-            >
-              <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-                {row.k}
-              </span>
-              {row.pill ? (
-                <span
-                  style={{
-                    padding: "2px 8px",
-                    borderRadius: 5,
-                    fontSize: 11,
-                    fontFamily: "monospace",
-                    background:
-                      row.pill === "purple"
-                        ? "rgba(155,127,255,0.15)"
-                        : "rgba(245,166,35,0.13)",
-                    color:
-                      row.pill === "purple" ? "var(--purple)" : "var(--amber)",
-                  }}
-                >
-                  {row.v}
-                </span>
-              ) : (
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontFamily: "monospace",
-                    ...row.style,
-                  }}
-                >
-                  {row.v}
-                </span>
-              )}
+      <div className="dashboard-columns">
+        <section className="panel recent-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">IN THE WORKROOM</span>
+              <h2>Recent tasks</h2>
             </div>
-          ))}
-        </div>
+            <button className="text-button" onClick={onHistory}>
+              See all <i className="ti ti-arrow-right" aria-hidden="true" />
+            </button>
+          </div>
+          {recentJobs.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><i className="ti ti-coffee" aria-hidden="true" /></div>
+              <strong>Nothing brewing just yet</strong>
+              <p>Your submitted tasks will show up here as they run.</p>
+              <button className="text-button" onClick={onSubmit}>Create your first task <i className="ti ti-arrow-right" aria-hidden="true" /></button>
+            </div>
+          ) : (
+            <div className="recent-list">
+              {recentJobs.map((job) => (
+                <button className="recent-row" key={job.job_id} onClick={onHistory}>
+                  <span className="job-glyph"><i className="ti ti-sparkles" aria-hidden="true" /></span>
+                  <span className="recent-description">
+                    <strong>{job.question || "Untitled task"}</strong>
+                    <small>{formatTime(job._submittedAt)}</small>
+                  </span>
+                  <StatusPill status={job.status} />
+                  <i className="ti ti-chevron-right recent-chevron" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
 
-        <div style={{ padding: "16px 18px", overflowY: "auto" }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 500,
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.07em",
-              marginBottom: 12,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <i className="ti ti-route" style={{ fontSize: 13 }} /> API routes
+        <aside className="panel service-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">UNDER THE HOOD</span>
+              <h2>Agent service</h2>
+            </div>
+            <span className={`service-badge ${apiStatus}`}>
+              <span className="health-dot" />{apiStatus === "online" ? "Online" : "Offline"}
+            </span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {routes.map((r) => (
-              <div
-                key={r.path}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "7px 10px",
-                  borderRadius: 7,
-                  background: "var(--bg-surface)",
-                  border: "0.5px solid var(--border)",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 500,
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    fontFamily: "monospace",
-                    minWidth: 36,
-                    textAlign: "center",
-                    background:
-                      r.method === "POST"
-                        ? "rgba(74,158,255,0.15)"
-                        : "rgba(31,200,130,0.15)",
-                    color:
-                      r.method === "POST" ? "var(--blue)" : "var(--accent)",
-                  }}
-                >
-                  {r.method}
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontFamily: "monospace",
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {r.path}
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginLeft: "auto",
-                  }}
-                >
-                  {r.desc}
-                </span>
+          <div className="service-details">
+            <div><span>Model</span><strong>Gemini · backend config</strong></div>
+            <div><span>Queue</span><strong>Redis + arq</strong></div>
+            <div><span>Workers</span><strong>2 processes</strong></div>
+          </div>
+          <div className="route-directory">
+            <div className="route-directory-heading">
+              <span className="route-directory-icon">
+                <i className="ti ti-route" aria-hidden="true" />
+              </span>
+              <div>
+                <span className="route-heading">API SURFACE</span>
+                <h3>Route directory</h3>
               </div>
-            ))}
+              <span className="route-count">04 routes</span>
+            </div>
+            <div className="route-list">
+              {routes.map((route) => (
+                <article className="route-row" key={route.path}>
+                  <span className={`method-tag ${route.method.toLowerCase()}`}>{route.method}</span>
+                  <div className="route-content">
+                    <div className="route-topline">
+                      <code>{route.path}</code>
+                      <span className={`route-access ${route.access === "Public" ? "public" : ""}`}>
+                        {route.access}
+                      </span>
+                    </div>
+                    <div className="route-purpose">
+                      <strong>{route.label}</strong>
+                      <span>{route.detail}</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              marginTop: 10,
-              fontSize: 12,
-              color: "var(--accent)",
-              cursor: "pointer",
-            }}
-          >
-            <i className="ti ti-book-2" style={{ fontSize: 13 }} /> Open
-            interactive docs →
-          </div>
-        </div>
+        </aside>
       </div>
+      <footer className="dashboard-footer">
+        <span>Made for thoughtful work.</span>
+        <span>Agent Service <i className="ti ti-point-filled" aria-hidden="true" /> v0.1.0</span>
+      </footer>
     </div>
   );
 }

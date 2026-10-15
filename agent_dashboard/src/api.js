@@ -6,6 +6,14 @@ const headers = {
   "X-API-Key": API_KEY,
 };
 
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function getHealth() {
   const res = await fetch(`${BASE}/health`, { headers });
   if (!res.ok) throw new Error("Health check failed");
@@ -33,7 +41,12 @@ export async function submitJob({ question, user_id, documents = [] }) {
 
 export async function getJob(job_id) {
   const res = await fetch(`${BASE}/v1/agent/jobs/${job_id}`, { headers });
-  if (!res.ok) throw new Error("Job not found");
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new ApiError("This task result has expired or is no longer available.", res.status);
+    }
+    throw new ApiError("Could not refresh this task.", res.status);
+  }
   return res.json();
 }
 

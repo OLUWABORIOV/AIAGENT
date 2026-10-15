@@ -29,28 +29,35 @@ export default function App() {
   const handleJobSubmit = (job) => {
     addJob(job);
     startPolling(job.job_id);
-    // Navigate to job history after submitting
-    setTimeout(() => setPage("history"), 600);
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "var(--gray100)",
-      }}
-    >
+    <div className="app-shell">
       <Sidebar
         active={page}
         setActive={setPage}
         apiStatus={apiOnline ? "online" : "offline"}
       />
 
-      <main style={{ flex: 1, overflowY: "auto" }}>
-        {page === "dashboard" && <Dashboard jobs={jobs} />}
-        {page === "submit" && <JobSubmit onJobSubmit={handleJobSubmit} />}
-        {page === "history" && <JobList jobs={jobs} />}
+      <main className="app-main">
+        {page === "dashboard" && (
+          <Dashboard
+            jobs={jobs}
+            apiStatus={apiOnline ? "online" : "offline"}
+            onSubmit={() => setPage("submit")}
+            onHistory={() => setPage("history")}
+          />
+        )}
+        {page === "submit" && (
+          <JobSubmit
+            onJobSubmit={handleJobSubmit}
+            onViewHistory={() => setPage("history")}
+            apiStatus={apiOnline ? "online" : "offline"}
+          />
+        )}
+        {page === "history" && (
+          <JobList jobs={jobs} onNewTask={() => setPage("submit")} />
+        )}
       </main>
     </div>
   );

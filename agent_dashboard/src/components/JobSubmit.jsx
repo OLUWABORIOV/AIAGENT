@@ -1,165 +1,184 @@
-import React, { useState } from 'react'
-import { submitJob } from '../api'
-import StatusPill from './StatusPill'
+import React, { useState } from "react";
+import { ArrowRight, Check, CircleHelp, LoaderCircle, Sparkles } from "lucide-react";
+import { submitJob } from "../api";
 
-const card = {
-  background: '#fff',
-  border: '1px solid var(--gray200)',
-  borderRadius: 'var(--radius-lg)',
-  padding: '24px 28px',
-  boxShadow: 'var(--shadow-sm)',
-  maxWidth: 620,
-}
+const suggestions = [
+  "Summarize the key ideas in a topic",
+  "Explain a tricky technical concept",
+  "Help me plan my next project",
+];
 
-const inputStyle = {
-  width: '100%',
-  padding: '10px 14px',
-  border: '1px solid var(--gray200)',
-  borderRadius: 'var(--radius-md)',
-  fontSize: 13,
-  fontFamily: 'var(--font-body)',
-  color: 'var(--gray800)',
-  background: 'var(--gray50)',
-  outline: 'none',
-  transition: 'border 0.15s',
-}
+export default function JobSubmit({ onJobSubmit, onViewHistory, apiStatus = "offline" }) {
+  const [question, setQuestion] = useState("");
+  const [userId, setUserId] = useState("user_1");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [submittedJob, setSubmittedJob] = useState(null);
 
-export default function JobSubmit({ onJobSubmit }) {
-  const [question, setQuestion]   = useState('')
-  const [userId, setUserId]       = useState('user_1')
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState(null)
-  const [lastJob, setLastJob]     = useState(null)
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const cleanedQuestion = question.trim();
+    const cleanedUserId = userId.trim();
+    if (!cleanedQuestion || !cleanedUserId || loading) return;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!question.trim()) return
-    setLoading(true)
-    setError(null)
-    setLastJob(null)
+    setLoading(true);
+    setError(null);
+    setSubmittedJob(null);
 
     try {
-      const job = await submitJob({ question: question.trim(), user_id: userId })
-      setLastJob({ ...job, question: question.trim() })
-      onJobSubmit({ ...job, question: question.trim() })
-      setQuestion('')
-    } catch (err) {
-      setError(err.message)
+      const job = await submitJob({ question: cleanedQuestion, user_id: cleanedUserId });
+      const completeJob = { ...job, question: cleanedQuestion, user_id: cleanedUserId };
+      onJobSubmit(completeJob);
+      setSubmittedJob(completeJob);
+      setQuestion("");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Could not submit the task. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const startAnother = () => {
+    setSubmittedJob(null);
+    setError(null);
+  };
 
   return (
-    <div className="fade-in" style={{ padding: '28px 32px' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--navy)', letterSpacing: '-0.02em', marginBottom: 4 }}>
-          Submit a job
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--gray600)' }}>
-          Sends a question to your Claude agent. Returns a job_id instantly — the agent runs in the background.
-        </p>
-      </div>
+    <div className="screen-page submit-page fade-in">
+      <header className="screen-heading">
+        <div>
+          <span className="eyebrow">A FRESH START</span>
+          <h1>What can I help with?</h1>
+          <p>Describe the outcome you want. Your agent will take it from there.</p>
+        </div>
+        <span className={`screen-heading-note ${apiStatus}`}>
+          <span className={`health-dot ${apiStatus}`} />
+          {apiStatus === "online" ? "Connected to agent service" : "Agent service offline"}
+        </span>
+      </header>
 
-      <div style={card}>
-        <form onSubmit={handleSubmit}>
-          {/* Question */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--gray600)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>
-              Question *
-            </label>
-            <textarea
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              placeholder="e.g. What is the difference between async and sync Python?"
-              style={{ ...inputStyle, height: 100, resize: 'vertical' }}
-              required
-            />
-          </div>
-
-          {/* User ID */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--gray600)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>
-              User ID
-            </label>
-            <input
-              value={userId}
-              onChange={e => setUserId(e.target.value)}
-              style={inputStyle}
-              placeholder="user_1"
-            />
-            <div style={{ fontSize: 11, color: 'var(--gray400)', marginTop: 4 }}>
-              Rate limit: max 3 concurrent jobs per user
+      <div className="submit-layout">
+        <section className="submit-card">
+          {submittedJob ? (
+            <div className="submit-success">
+              <span className="success-mark"><Check size={21} strokeWidth={2.4} /></span>
+              <span className="eyebrow">TASK ACCEPTED</span>
+              <h2>Your agent is on it.</h2>
+              <p className="success-question">{submittedJob.question}</p>
+              <div className="success-meta">
+                <span className="status-pill queued">{submittedJob.status || "queued"}</span>
+                <code title={submittedJob.job_id}>ID · {submittedJob.job_id}</code>
+              </div>
+              <div className="success-actions">
+                <button className="button button-primary" onClick={onViewHistory}>
+                  Follow progress <ArrowRight size={15} />
+                </button>
+                <button className="button button-secondary" onClick={startAnother}>Start another task</button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-section-heading">
+                <span className="form-step">01</span>
+                <div><strong>Describe your task</strong><small>Be as specific as you like. You can include context and constraints.</small></div>
+              </div>
+              <label className="field-label" htmlFor="task-question">Your task</label>
+              <textarea
+                id="task-question"
+                className="task-textarea"
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder="For example: Explain how async functions work in Python, with a short example and when I should use them."
+                maxLength={4000}
+                required
+              />
+              <div className="input-footnote">
+                <span>Clear goals help your agent give a better answer.</span>
+                <span>{question.length.toLocaleString()} / 4,000</span>
+              </div>
 
-          {/* Error */}
-          {error && (
-            <div style={{ padding: '10px 14px', background: '#FEE2E2', borderRadius: 'var(--radius-md)', fontSize: 12, color: '#991B1B', marginBottom: 16, fontFamily: 'var(--font-mono)' }}>
-              ✕ {error}
-            </div>
+              <div className="suggestions">
+                <span className="suggestions-label">NEED A STARTING POINT?</span>
+                <div className="suggestion-list">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      className="suggestion-chip"
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setQuestion(suggestion)}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-divider" />
+              <div className="form-section-heading identity-heading">
+                <span className="form-step">02</span>
+                <div><strong>Workspace identity</strong><small>Used to group your tasks and apply the per-user queue limit.</small></div>
+              </div>
+              <label className="field-label" htmlFor="workspace-id">Workspace ID</label>
+              <input
+                id="workspace-id"
+                className="workspace-input"
+                value={userId}
+                onChange={(event) => setUserId(event.target.value)}
+                maxLength={64}
+                pattern="[A-Za-z0-9_\-]+"
+                title="Use letters, numbers, underscores, or hyphens."
+                required
+              />
+              <p className="field-help"><CircleHelp size={13} /> Up to 3 tasks can run at once for this workspace.</p>
+
+              {error && (
+                <div className="form-error" role="alert">
+                  <strong>Couldn’t submit this task</strong>
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="submit-form-footer">
+                <span><Sparkles size={14} /> Runs in the background</span>
+                <button
+                  className="button button-primary submit-button"
+                  type="submit"
+                  disabled={loading || !question.trim() || !userId.trim()}
+                >
+                  {loading ? <><LoaderCircle className="button-spinner" size={15} /> Sending task…</> : <>Send to agent <ArrowRight size={15} /></>}
+                </button>
+              </div>
+            </form>
           )}
+        </section>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading || !question.trim()}
-            style={{
-              width: '100%',
-              padding: '11px',
-              background: loading ? 'var(--gray200)' : 'var(--navy)',
-              color: loading ? 'var(--gray400)' : '#fff',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 13,
-              fontWeight: 600,
-              fontFamily: 'var(--font-display)',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              letterSpacing: '0.02em',
-              transition: 'all 0.15s',
-            }}
-          >
-            {loading ? 'Submitting…' : 'POST /v1/agent/run →'}
-          </button>
-        </form>
-      </div>
-
-      {/* Success response */}
-      {lastJob && (
-        <div className="fade-in" style={{ ...card, marginTop: 16, borderLeft: '3px solid var(--green)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>
-              ✓ Job queued
-            </span>
-            <StatusPill status={lastJob.status} />
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--gray400)', marginBottom: 4, fontFamily: 'var(--font-mono)' }}>job_id</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--navy)', background: 'var(--gray50)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', marginBottom: 10, wordBreak: 'break-all' }}>
-            {lastJob.job_id}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--gray600)' }}>
-            The agent is now running in the background. Check <strong>Job history</strong> to see the result.
-          </div>
-        </div>
-      )}
-
-      {/* How it works */}
-      <div style={{ ...card, marginTop: 16, background: 'var(--gray50)', border: '1px solid var(--gray200)' }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray400)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, fontFamily: 'var(--font-mono)' }}>
-          What happens when you submit
-        </div>
-        {[
-          ['1', 'FastAPI validates your request (auth + schema)'],
-          ['2', 'Job is stored in Redis with status: queued'],
-          ['3', 'arq worker picks it up and calls Claude'],
-          ['4', 'Result stored in Redis — poll /v1/agent/jobs/{id}'],
-        ].map(([n, text]) => (
-          <div key={n} style={{ display: 'flex', gap: 10, marginBottom: 8, fontSize: 12 }}>
-            <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--navy)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{n}</span>
-            <span style={{ color: 'var(--gray600)', lineHeight: 1.6 }}>{text}</span>
-          </div>
-        ))}
+        <aside className="submit-aside">
+          <section className="how-card">
+            <span className="eyebrow">A LITTLE REASSURANCE</span>
+            <h2>It’s a short journey.</h2>
+            <div className="journey">
+              <div className="journey-step">
+                <span className="journey-icon"><i className="ti ti-send" aria-hidden="true" /></span>
+                <span><strong>You send a task</strong><small>Your request is queued by the configured agent service.</small></span>
+              </div>
+              <span className="journey-line" />
+              <div className="journey-step">
+                <span className="journey-icon"><i className="ti ti-sparkles" aria-hidden="true" /></span>
+                <span><strong>Your agent gets to work</strong><small>You can continue working while it runs.</small></span>
+              </div>
+              <span className="journey-line" />
+              <div className="journey-step">
+                <span className="journey-icon"><i className="ti ti-message-check" aria-hidden="true" /></span>
+                <span><strong>Your answer is ready</strong><small>Open task history to see the response.</small></span>
+              </div>
+            </div>
+          </section>
+          <section className="privacy-note">
+            <i className="ti ti-lock" aria-hidden="true" />
+            <p><strong>Your request is sent to your agent service.</strong><br />Only include information you’re comfortable sending to that service.</p>
+          </section>
+        </aside>
       </div>
     </div>
-  )
+  );
 }

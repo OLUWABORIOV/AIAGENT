@@ -1,198 +1,47 @@
+import React from "react";
+import { BookOpen, ClipboardList, LayoutDashboard, Plus } from "lucide-react";
+
+const navigation = [
+  { id: "dashboard", label: "Overview", icon: LayoutDashboard },
+  { id: "submit", label: "New task", icon: Plus },
+  { id: "history", label: "Task history", icon: ClipboardList },
+];
+
 export default function Sidebar({ active, setActive, apiStatus }) {
-  const nav = [
-    { id: "dashboard", icon: "ti-layout-dashboard", label: "Dashboard" },
-    { id: "submit", icon: "ti-player-play", label: "Submit job", badge: "new" },
-    { id: "history", icon: "ti-history", label: "Job history" },
-  ];
-
   return (
-    <aside
-      style={{
-        width: "var(--sidebar-w)",
-        background: "var(--bg-surface)",
-        borderRight: "0.5px solid var(--border)",
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        flexShrink: 0,
-      }}
-    >
-      <div
-        style={{
-          padding: "18px 16px 14px",
-          borderBottom: "0.5px solid var(--border)",
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            background: "var(--accent-dim)",
-            border: "0.5px solid var(--border-accent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 8,
-          }}
-        >
-          <i
-            className="ti ti-cpu"
-            style={{ fontSize: 15, color: "var(--accent)" }}
-          />
-        </div>
-        <div style={{ fontSize: 13, fontWeight: 500 }}>Agent Service</div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-          v0.1.0
-        </div>
-      </div>
+    <aside className="app-sidebar">
+      <button className="brand-lockup" onClick={() => setActive("dashboard")} aria-label="Go to overview">
+        <span className="brand-mark"><img src="/agent-mark.png" alt="" /></span>
+        <span className="brand-name">still<span>work</span><small>AGENT STUDIO</small></span>
+      </button>
 
-      <div style={{ padding: "12px 10px 4px" }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 500,
-            color: "var(--text-muted)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            padding: "0 6px",
-            marginBottom: 4,
-          }}
-        >
-          Main
-        </div>
-        {nav.map((n) => (
-          <div
-            key={n.id}
-            onClick={() => setActive(n.id)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: "7px 8px",
-              borderRadius: 7,
-              cursor: "pointer",
-              fontSize: 12.5,
-              color:
-                active === n.id ? "var(--accent)" : "var(--text-secondary)",
-              background: active === n.id ? "var(--accent-dim)" : "transparent",
-              border:
-                active === n.id
-                  ? "0.5px solid var(--border-accent)"
-                  : "0.5px solid transparent",
-              marginBottom: 2,
-            }}
+      <div className="sidebar-label">WORKSPACE</div>
+      <nav className="sidebar-nav" aria-label="Main navigation">
+        {navigation.map(({ id, label, icon: Icon }) => (
+          <button
+            className={`nav-item${active === id ? " active" : ""}`}
+            key={id}
+            onClick={() => setActive(id)}
+            aria-current={active === id ? "page" : undefined}
           >
-            <i className={`ti ${n.icon}`} style={{ fontSize: 15 }} />
-            {n.label}
-            {n.badge && (
-              <span
-                style={{
-                  marginLeft: "auto",
-                  background: "var(--accent)",
-                  color: "#032b18",
-                  fontSize: 10,
-                  fontWeight: 500,
-                  padding: "1px 6px",
-                  borderRadius: 10,
-                }}
-              >
-                {n.badge}
-              </span>
-            )}
-          </div>
+            <Icon size={17} strokeWidth={1.8} aria-hidden="true" />
+            <span>{label}</span>
+            {id === "submit" && <i className="ti ti-arrow-up-right nav-trailing" aria-hidden="true" />}
+          </button>
         ))}
-      </div>
+      </nav>
 
-      <div style={{ padding: "12px 10px 4px" }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 500,
-            color: "var(--text-muted)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            padding: "0 6px",
-            marginBottom: 4,
-          }}
-        >
-          Docs
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            padding: "7px 8px",
-            borderRadius: 7,
-            cursor: "pointer",
-            fontSize: 12.5,
-            color: "var(--text-secondary)",
-          }}
-        >
-          <i className="ti ti-book" style={{ fontSize: 15 }} />
-          API docs
-          <i
-            className="ti ti-external-link"
-            style={{
-              fontSize: 11,
-              marginLeft: "auto",
-              color: "var(--text-muted)",
-            }}
-          />
-        </div>
+      <div className="sidebar-spacer" />
+      <div className="sidebar-note">
+        <span className="sidebar-note-icon"><BookOpen size={15} aria-hidden="true" /></span>
+        <span><strong>Made to help</strong><small>One thoughtful task at a time.</small></span>
       </div>
-
-      <div
-        style={{
-          marginTop: "auto",
-          padding: "12px 10px",
-          borderTop: "0.5px solid var(--border)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: 8,
-            borderRadius: 7,
-            background: "var(--bg-elevated)",
-          }}
-        >
-          <div
-            style={{ position: "relative", width: 7, height: 7, flexShrink: 0 }}
-          >
-            <div
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background:
-                  apiStatus === "online" ? "var(--accent)" : "var(--red)",
-              }}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              System health
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: apiStatus === "online" ? "var(--accent)" : "var(--red)",
-                fontWeight: 500,
-              }}
-            >
-              {apiStatus === "online" ? "API online" : "API offline"}
-            </div>
-          </div>
-          <i
-            className="ti ti-wifi-off"
-            style={{ fontSize: 14, color: "var(--text-muted)" }}
-          />
-        </div>
+      <div className={`sidebar-status ${apiStatus}`}>
+        <span className="health-dot" />
+        <span><strong>{apiStatus === "online" ? "Agent connected" : "Agent offline"}</strong><small>Service health</small></span>
+        <span className="status-ping" />
       </div>
+      <div className="sidebar-credit">QUIETLY GET MORE DONE</div>
     </aside>
   );
 }
