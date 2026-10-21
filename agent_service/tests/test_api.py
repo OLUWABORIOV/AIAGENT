@@ -246,52 +246,16 @@ class TestGetJob:
 
 class TestUserJobs:
     async def test_returns_zero_for_user_with_no_jobs(self, client: AsyncClient):
-        response = await client.get("/v1/users/brand_new_user/jobs")
+        response = await client.get("/v1/agent/jobs", params={"user_id": "brand_new_user"})
         assert response.status_code == 200
         assert response.json()["active_jobs"] == 0
 
     async def test_returns_correct_count(self, client: AsyncClient, fake_redis):
         await fake_redis.set("user_jobs:busy_user", "3")
-        response = await client.get("/v1/users/busy_user/jobs")
+        response = await client.get("/v1/agent/jobs", params={"user_id": "busy_user"})
         data = response.json()
         assert data["active_jobs"] == 3
         assert data["user_id"] == "busy_user"
-
-
-# ── Cancel job ────────────────────────────────────────────────────────────────
-
-class TestCancelJob:
-    async def test_cancels_queued_job(self, client: AsyncClient, fake_redis):
-        from app.schemas import JobRecord
-        record = JobRecord(
-            job_id="cancel-me",
-            status=JobStatus.QUEUED,
-            user_id="user_001",
-            created_at="2026-04-01T00:00:00Z",
-        )
-        await fake_redis.set("job:cancel-me", record.model_dump_json(), ex=3600)
-
-        response = await client.delete("/v1/agent/jobs/cancel-me")
-        assert response.status_code == 200
-        assert response.json()["status"] == "cancelled"
-
-    async def test_cannot_cancel_completed_job(self, client: AsyncClient, fake_redis):
-        from app.schemas import JobRecord
-        record = JobRecord(
-            job_id="already-done",
-            status=JobStatus.COMPLETED,
-            user_id="user_001",
-            created_at="2026-04-01T00:00:00Z",
-            answer="Done.",
-        )
-        await fake_redis.set("job:already-done", record.model_dump_json(), ex=3600)
-
-        response = await client.delete("/v1/agent/jobs/already-done")
-        assert response.status_code == 409   # Conflict
-
-    async def test_cancel_returns_404_for_unknown_job(self, client: AsyncClient):
-        response = await client.delete("/v1/agent/jobs/ghost-job")
-        assert response.status_code == 404
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────

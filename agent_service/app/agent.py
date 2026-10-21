@@ -1,15 +1,30 @@
 # app/agent.py
+import ast
 import time
 from dataclasses import dataclass
 from typing import TypedDict, Annotated, Optional
 import operator
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from langgraph.graph import StateGraph, END
 
 from app.config import settings
 
-genai.configure(api_key=settings.gemini_api_key)
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=settings.gemini_api_key)
+    return _client
+
+def _generate(prompt_text: str):
+    return _get_client().models.generate_content(
+        model=settings.gemini_model,
+        contents=prompt_text,
+        config=types.GenerateContentConfig(max_output_tokens=1024),
+    )
 
 # ── State ─────────────────────────────────────────────────────────────────────
 class AgentState(TypedDict, total=False):
@@ -46,35 +61,16 @@ def _flatten_messages(messages: list[dict]) -> str:
         parts.append(f"{message.get('role', 'user')}: {content}")
     return "\n".join(parts)
 
-
 def _extract_response_text(response) -> str:
-    if output_text := getattr(response, "output_text", None):
-        return output_text
-    output = getattr(response, "output", None)
-    if isinstance(output, str):
-        return output
-    if isinstance(output, list) and output:
-        first = output[0]
-        if isinstance(first, str):
-            return first
-        if hasattr(first, "content"):
-            content = first.content
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                return " ".join(
-                    getattr(block, "text", "") for block in content if hasattr(block, "text")
-                )
-    return ""
+    return getattr(response, "text", None) or ""
 
 
 def _extract_token_counts(response) -> tuple[int, int]:
-    usage = getattr(response, "usage", None)
+    usage = getattr(response, "usage_metadata", None)
     if usage is None:
         return 0, 0
-
-    input_tokens = getattr(usage, "prompt_tokens", None) or getattr(usage, "input_tokens", 0) or 0
-    output_tokens = getattr(usage, "output_tokens", 0) or 0
+    input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+    output_tokens = getattr(usage, "candidates_token_count", 0) or 0
     return int(input_tokens), int(output_tokens)
 
 
@@ -112,15 +108,42 @@ def _extract_final_answer(messages: list[dict]) -> str:
     return "No answer found"
 
 
+_ALLOWED_BINOPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_ALLOWED_UNARYOPS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+
+
+def _safe_arithmetic(node):
+    """Evaluate a tiny arithmetic AST. Never use eval() on model output."""
+    if isinstance(node, ast.Expression):
+        return _safe_arithmetic(node.body)
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+    if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_BINOPS:
+        left = _safe_arithmetic(node.left)
+        right = _safe_arithmetic(node.right)
+        if isinstance(node.op, ast.Pow) and abs(right) > 1000:
+            raise ValueError("exponent too large")
+        return _ALLOWED_BINOPS[type(node.op)](left, right)
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _ALLOWED_UNARYOPS:
+        return _ALLOWED_UNARYOPS[type(node.op)](_safe_arithmetic(node.operand))
+    raise ValueError("disallowed expression")
+
+
 def execute_tool(name: str, inputs: dict, state: AgentState) -> str:
     if name == "calculate":
         expression = str(inputs.get("expression", ""))
         try:
-            allowed = {"__builtins__": {}}
-            result = eval(expression, allowed, {})
-            return str(result)
+            return str(_safe_arithmetic(ast.parse(expression, mode="eval")))
         except Exception as exc:
-            return f"Error: {exc}"
+            return f"Tool error: {exc}"
 
     if name == "summarise_documents":
         docs = state.get("documents", [])
@@ -131,23 +154,11 @@ def execute_tool(name: str, inputs: dict, state: AgentState) -> str:
         return f"Summary ({focus}): " + " | ".join(summary_lines)
 
     return f"Unknown tool: {name}"
-
-
 def llm_node(state: AgentState) -> dict:
     prompt_text = _flatten_messages(state["messages"])
-    try:
-        response = genai.generate(
-            model=settings.gemini_model,
-            prompt=prompt_text,
-            max_output_tokens=1024,
-        )
-    except Exception as exc:
-        return {
-            "messages": [{"role": "assistant", "content": f"Error: {exc}"}],
-            "step_count": state["step_count"] + 1,
-            "input_tokens": state["input_tokens"],
-            "output_tokens": state["output_tokens"],
-        }
+    # Let provider errors propagate so the worker can mark the job failed
+    # instead of storing an "Error: ..." string as a successful answer.
+    response = _generate(prompt_text)
 
     text = _extract_response_text(response)
     input_tokens, output_tokens = _extract_token_counts(response)
@@ -159,7 +170,8 @@ def llm_node(state: AgentState) -> dict:
         "output_tokens": state["output_tokens"] + output_tokens,
     }
 
-# ── Graph ─────────────────────────────────────────────────────────────────────
+
+# -- Graph --
 def build_graph():
     g = StateGraph(AgentState)
     g.add_node("llm", llm_node)
@@ -179,7 +191,8 @@ class AgentOutput:
     duration_secs: float
     steps_taken: int
 
-def run_agent(question: str, documents: list[str] = []) -> AgentOutput:
+def run_agent(question: str, documents: list[str] | None = None) -> AgentOutput:
+    documents = documents or []
     context = "\n\n".join(documents)
     user_content = f"Context:\n{context}\n\nQuestion: {question}" if context else question
 
@@ -190,14 +203,13 @@ def run_agent(question: str, documents: list[str] = []) -> AgentOutput:
         "documents":    documents,
         "step_count":   0,
         "input_tokens": 0,
-        "output_tokens":0,
+        "output_tokens": 0,
     })
     duration = time.perf_counter() - start
 
-    # Estimated Gemini cost: replace with actual model pricing if required.
     cost = (
-        final_state["input_tokens"]  / 1_000_000 * 0.0 +
-        final_state["output_tokens"] / 1_000_000 * 0.0
+        final_state["input_tokens"]  / 1_000_000 * settings.gemini_input_price_per_m +
+        final_state["output_tokens"] / 1_000_000 * settings.gemini_output_price_per_m
     )
 
     return AgentOutput(

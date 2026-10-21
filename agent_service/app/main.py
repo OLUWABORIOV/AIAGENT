@@ -60,15 +60,19 @@ async def check_user_job_limit(user_id: str, redis: aioredis.Redis):
     await redis.incr(f"user_jobs:{user_id}")
     await redis.expire(f"user_jobs:{user_id}", settings.job_timeout_secs)
 
-async def decrement_user_jobs(user_id: str, redis: aioredis.Redis):
-    count = await redis.get(f"user_jobs:{user_id}")
-    if count and int(count) > 0:
-        await redis.decr(f"user_jobs:{user_id}")
-
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.get("/health")
-async def health():
-    return {"status": "ok", "version": settings.api_version}
+async def health(request: Request):
+    try:
+        await request.app.state.redis.ping()
+        redis_status = "ok"
+    except Exception:
+        redis_status = "unavailable"
+    return {
+        "status": "ok" if redis_status == "ok" else "degraded",
+        "version": settings.api_version,
+        "redis": redis_status,
+    }
 
 @app.post("/v1/agent/run", response_model=JobResponse, status_code=202)
 async def submit_job(
@@ -96,16 +100,22 @@ async def submit_job(
         ex=settings.job_ttl_secs,
     )
 
-    # Enqueue the job
-    await arq.enqueue_job(
-        "run_agent_job",
-        job_id=job_id,
-        question=body.question,
-        user_id=body.user_id,
-        documents=body.documents,
-        _job_id=job_id,
-        _job_try=1,
-    )
+    # Enqueue the job. If enqueueing fails, roll back the slot and record so a
+    # transient Redis/arq error doesn't permanently consume the user's quota.
+    try:
+        await arq.enqueue_job(
+            "run_agent_job",
+            job_id=job_id,
+            question=body.question,
+            user_id=body.user_id,
+            documents=body.documents,
+            _job_id=job_id,
+            _job_try=1,
+        )
+    except Exception:
+        await redis.delete(f"job:{job_id}")
+        await redis.decr(f"user_jobs:{body.user_id}")
+        raise
 
     logger.info("job_queued", extra={"job_id": job_id, "user_id": body.user_id})
 
@@ -126,10 +136,6 @@ async def get_job(job_id: str, request: Request, _key: str = Depends(require_api
 
     job = json.loads(data)
 
-    # Decrement counter when job finishes
-    if job["status"] in (JobStatus.COMPLETED, JobStatus.FAILED):
-        await decrement_user_jobs(job.get("user_id", ""), redis)
-
     return JobResult(
         job_id=job["job_id"],
         status=job["status"],
@@ -139,6 +145,7 @@ async def get_job(job_id: str, request: Request, _key: str = Depends(require_api
         output_tokens=job.get("output_tokens", 0),
         cost_usd=job.get("cost_usd", 0.0),
         duration_secs=job.get("duration_secs", 0.0),
+        steps_taken=job.get("steps_taken", 0),
         created_at=job["created_at"],
         completed_at=job.get("completed_at"),
     )

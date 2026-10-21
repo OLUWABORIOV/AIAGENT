@@ -1,7 +1,7 @@
 # app/config.py
 import json
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 
 class Settings(BaseSettings):
@@ -29,10 +29,12 @@ class Settings(BaseSettings):
                 return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
-    # Gemini
-    gemini_api_key: str
-    gemini_model: str = "gemini-3-flash"
-
+    # Gemini. Keep the key optional so imports and tests work without a .env;
+    # real calls still fail fast when the key is missing.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-flash"
+    gemini_input_price_per_m: float = 0.0
+    gemini_output_price_per_m: float = 0.0
     # Redis / arq
     redis_url: str = "redis://redis:6379"
     max_jobs_per_user: int = 3      # concurrent job limit
@@ -43,7 +45,6 @@ class Settings(BaseSettings):
     max_tokens_per_job: int = 50_000
     max_cost_usd_per_job: float = 0.50
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

@@ -1,14 +1,25 @@
-# Environments
+# Environments and secrets
 .env
-.env.*
+.env.local
+.env.*.local
 .venv/
+.venv-1/
+venv/
 
-# Frontend dependencies & builds
+# Frontend dependencies and builds
 agent_dashboard/node_modules/
 agent_dashboard/dist/
 agent_dashboard/build/
 
-# Backend dependencies & caches
-agent_service/__pycache__/
-agent_service/venv/
-agent_service/.pytest_cache/
+# Python caches and generated metadata
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Tooling
+.vscode/
+.idea/
+.DS_Store

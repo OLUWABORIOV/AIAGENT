@@ -92,6 +92,7 @@ class TestRunAgentJob:
         assert raw is not None
         record = json.loads(raw)
         assert record["status"] == "completed"
+        assert record["steps_taken"] == 1
 
     async def test_writes_answer_on_success(self, ctx, redis, good_output):
         with patch("app.worker.run_agent", return_value=good_output):

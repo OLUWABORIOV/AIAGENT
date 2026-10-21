@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green?logo=fastapi)
-![Tests](https://img.shields.io/badge/tests-16%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-76%20passing-brightgreen)
 ![Docker](https://img.shields.io/badge/Docker-ready-blue?logo=docker)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
@@ -31,7 +31,7 @@ This is the same pattern used by OpenAI's Batch API, Stripe's async payments, an
 - ✅ Automatic job timeout and cost cap enforcement
 - ✅ Structured JSON logging with request IDs for full traceability
 - ✅ Horizontal worker scaling add more workers with one command
-- ✅ 16 automated tests covering auth, rate limiting, agent logic, and schemas
+- ✅ 76 automated tests covering auth, rate limiting, agent logic, and schemas
 
 ---
 
@@ -41,13 +41,13 @@ This is the same pattern used by OpenAI's Batch API, Stripe's async payments, an
 | -------------------- | ------------------------------------------- | ------------------------------------------------ |
 | **Language**         | Python 3.12                                 | Async-native, richest AI ecosystem               |
 | **API Framework**    | FastAPI + Uvicorn                           | Async HTTP, auto-validation, auto-docs           |
-| **Agent Framework**  | LangGraph                                   | State machine for the ReAct agent loop           |
+| **Agent Framework**  | LangGraph                                   | State-graph orchestration (one LLM step today)   |
 | **LLM Provider**     | Google Gemini API                           | 1M token context window, competitive pricing     |
 | **Job Queue**        | arq                                         | Async Redis queue — jobs survive worker restarts |
 | **Storage**          | Redis                                       | Job queue + result store + rate limit counters   |
 | **Containerisation** | Docker + Docker Compose                     | API + worker + Redis in one command              |
 | **Validation**       | Pydantic v2                                 | Request/response schemas, settings from .env     |
-| **Testing**          | pytest + pytest-asyncio + httpx + AsyncMock | 16 tests, no real infrastructure needed          |
+| **Testing**          | pytest + pytest-asyncio + httpx + AsyncMock | 76 tests, no real infrastructure needed          |
 | **Logging**          | structlog                                   | Structured JSON logs with request ID correlation |
 | **Observability**    | Langfuse / LangSmith                        | LLM tracing, token usage, cost per run           |
 
@@ -80,7 +80,7 @@ Gemini API
 
 Make sure you have these installed before starting:
 
-- **Python 3.11+** — python.org
+- **Python 3.12+** — python.org
 - **Docker Desktop** — docker.com/products/docker-desktop
 - **Gemini API Key** — aistudio.google.com → Get API key (free tier available)
 
@@ -99,7 +99,7 @@ cp .env.example .env
 docker compose up -d
 
 # 3. Submit a job
-python scripts/client.py "What is the capital of France?"
+python script/client.py "What is the capital of France?"
 
 # 4. Or use curl
 curl -X POST http://localhost:8000/v1/agent/run \
@@ -121,7 +121,6 @@ agent_service/
 ├── app/
 │   ├── config.py      # All settings — reads from .env
 │   ├── schemas.py     # Pydantic request/response models
-│   ├── logger.py      # Structured JSON logging
 │   ├── agent.py       # LangGraph agent (the actual AI logic)
 │   ├── worker.py      # arq worker — runs agent jobs from the queue
 │   ├── middleware.py  # Auth, rate limiting, request IDs
@@ -132,7 +131,7 @@ agent_service/
 │   ├── test_agent.py  # Agent logic unit tests
 │   ├── test_worker.py # Worker function tests
 │   └── test_schemas.py# Pydantic model tests
-├── scripts/
+├── script/
 │   └── client.py      # Example client (submit + poll)
 ├── Dockerfile
 ├── docker-compose.yml
@@ -193,15 +192,15 @@ Poll for job status and result.
 
 ### DELETE /v1/agent/jobs/{job_id}
 
-Cancel a queued job.
+Not implemented yet. Cancellation is on the roadmap.
 
-### GET /v1/users/{user_id}/jobs
+### GET /v1/agent/jobs?user_id={user_id}
 
 Get active job count for a user.
 
 ### GET /health
 
-Health check. Returns 503 if Redis is down.
+Health check. Reports Redis connectivity. After startup it returns HTTP 200 with `status: "degraded"` when Redis is unreachable.
 
 ---
 
@@ -254,7 +253,10 @@ All settings are in `.env`. See `.env.example` for the full list.
 | Variable               | Default              | Description                        |
 | ---------------------- | -------------------- | ---------------------------------- |
 | `GEMINI_API_KEY`       | required             | Your Gemini API key                |
-| `API_KEYS`             | empty (no auth)      | Comma-separated valid API keys     |
+| `GEMINI_MODEL`         | `gemini-3.8-flash`   | Gemini model name                  |
+| `GEMINI_INPUT_PRICE_PER_M` | `0.0`            | Input price per 1M tokens (USD)     |
+| `GEMINI_OUTPUT_PRICE_PER_M` | `0.0`           | Output price per 1M tokens (USD)    |
+| `API_KEYS`             | empty (reject all)   | Comma-separated valid API keys     |
 | `REDIS_URL`            | `redis://redis:6379` | Redis connection string            |
 | `MAX_JOBS_PER_USER`    | `3`                  | Max concurrent jobs per user       |
 | `JOB_TIMEOUT_SECS`     | `300`                | Kill job after this many seconds   |
@@ -290,7 +292,7 @@ This project was built as a deep dive into production AI engineering patterns. C
 
 **Async Python is not optional for AI services.** The first version blocked on every LLM call. Under any concurrent load it collapsed immediately. Rebuilding around asyncio, arq, and non-blocking Redis operations was the most impactful architectural change — and the most educational.
 
-**Mocking is a skill, not a shortcut.** Writing 16 tests without real Redis or a real LLM forced me to deeply understand what each component actually does and what contract it exposes. AsyncMock for async Redis operations, ASGITransport for in-process HTTP requests, and @patch for the Gemini client — each mock taught me more about the thing it was replacing than using the real thing did.
+**Mocking is a skill, not a shortcut.** Writing 76 tests without real Redis or a real LLM forced me to deeply understand what each component actually does and what contract it exposes. AsyncMock for async Redis operations, ASGITransport for in-process HTTP requests, and @patch for the Gemini client — each mock taught me more about the thing it was replacing than using the real thing did.
 
 **Production patterns are not about complexity — they are about failure modes.** Every design decision came down to one question: what happens when this fails? The queue survives API restarts. Separate workers survive crashes. Typed state catches bugs at definition time. Middleware cannot be accidentally omitted.
 

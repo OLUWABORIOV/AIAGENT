@@ -3,6 +3,8 @@
 services:
   api:
     build: .
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     environment:
@@ -19,6 +21,8 @@ services:
   worker:
     build: .
     command: python -m arq app.worker.WorkerSettings
+    env_file:
+      - .env
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - REDIS_URL=redis://redis:6379

@@ -82,7 +82,6 @@ async def authed_client(client):
     Client with a valid API key pre-set.
     TEACHING NOTE: most tests need auth — this saves repeating the header.
     """
-    # API_KEYS is empty by default in test settings → all keys accepted
     return client
 
 
@@ -124,9 +123,8 @@ def override_settings(monkeypatch):
     TEACHING NOTE:
       autouse=True means this fixture runs for EVERY test automatically.
       We override settings that would fail in a test environment:
-      - api_keys: empty → all keys accepted (no real key needed)
       - gemini_api_key: set to a dummy (real agent tests mock the client)
     """
-    monkeypatch.setattr(settings, "api_keys", [])            # no auth in tests
+    monkeypatch.setattr(settings, "api_keys", ["test-key"])
     monkeypatch.setattr(settings, "gemini_api_key", "test-gemini-key")
     monkeypatch.setattr(settings, "max_jobs_per_user", 10)   # high limit for tests

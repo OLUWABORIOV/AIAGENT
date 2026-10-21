@@ -32,8 +32,9 @@ from app.agent import (
     run_agent,
     build_graph,
     AgentState,
+    AgentOutput,
 )
-from app.schemas import AgentOutput
+from app.config import settings
 
 
 # ── Tool tests ────────────────────────────────────────────────────────────────
@@ -76,6 +77,15 @@ class TestCalculateTool:
         """Security: should NOT execute arbitrary Python."""
         result = execute_tool("calculate", {"expression": "__import__('os').system('ls')"}, self.make_state())
         assert "Error" in result or "disallowed" in result.lower()
+
+    def test_rejects_object_subclass_escape(self):
+        """Security: empty __builtins__ is not a sandbox; the AST evaluator must win."""
+        result = execute_tool(
+            "calculate",
+            {"expression": "().__class__.__bases__[0].__subclasses__()"},
+            self.make_state(),
+        )
+        assert "disallowed" in result.lower()
 
     def test_handles_syntax_error_gracefully(self):
         result = execute_tool("calculate", {"expression": "2 +"}, self.make_state())
@@ -189,16 +199,15 @@ class TestRunAgent:
     ) -> MagicMock:
         """Build a realistic mock of a Gemini response."""
         mock_response = MagicMock()
-        mock_response.output_text = text
-        mock_response.usage = MagicMock(
-            prompt_tokens=input_tokens,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
+        mock_response.text = text
+        mock_response.usage_metadata = MagicMock(
+            prompt_token_count=input_tokens,
+            candidates_token_count=output_tokens,
         )
         return mock_response
 
     def test_returns_agent_output_type(self):
-        with patch("app.agent.genai.generate") as mock_generate:
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.return_value = self.make_mock_response()
 
             result = run_agent("What is the capital of France?")
@@ -206,7 +215,7 @@ class TestRunAgent:
         assert isinstance(result, AgentOutput)
 
     def test_answer_is_extracted_correctly(self):
-        with patch("app.agent.genai.generate") as mock_generate:
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.return_value = self.make_mock_response(
                 text="Paris is the capital of France."
             )
@@ -216,7 +225,7 @@ class TestRunAgent:
         assert result.answer == "Paris is the capital of France."
 
     def test_token_counts_are_summed(self):
-        with patch("app.agent.genai.generate") as mock_generate:
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.return_value = self.make_mock_response(
                 input_tokens=200, output_tokens=30
             )
@@ -225,15 +234,11 @@ class TestRunAgent:
 
         assert result.input_tokens == 200
         assert result.output_tokens == 30
-
-    def test_cost_is_calculated_correctly(self):
-        """
-        TEACHING NOTE: test cost calculation explicitly.
-        200 input tokens  = 200/1_000_000 * $3.00 = $0.0006
-        30 output tokens  = 30/1_000_000  * $15.00 = $0.00045
-        Total             = $0.00105
-        """
-        with patch("app.agent.genai.generate") as mock_generate:
+        
+    def test_cost_is_calculated_correctly(self, monkeypatch):
+        monkeypatch.setattr(settings, "gemini_input_price_per_m", 3.0)
+        monkeypatch.setattr(settings, "gemini_output_price_per_m", 15.0)
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.return_value = self.make_mock_response(
                 input_tokens=200, output_tokens=30
             )
@@ -244,7 +249,7 @@ class TestRunAgent:
         assert abs(result.cost_usd - expected_cost) < 0.000001
 
     def test_steps_taken_increments(self):
-        with patch("app.agent.genai.generate") as mock_generate:
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.return_value = self.make_mock_response()
 
             result = run_agent("Test question")
@@ -252,7 +257,7 @@ class TestRunAgent:
         assert result.steps_taken == 1   # one LLM call = one step
 
     def test_duration_is_positive(self):
-        with patch("app.agent.genai.generate") as mock_generate:
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.return_value = self.make_mock_response()
 
             result = run_agent("Test question")
@@ -260,19 +265,18 @@ class TestRunAgent:
         assert result.duration_secs >= 0.0
 
     def test_includes_documents_in_context(self):
-        with patch("app.agent.genai.generate") as mock_generate:
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.return_value = self.make_mock_response()
 
             run_agent("Summarise this", documents=["Doc 1", "Doc 2"])
 
             call_args = mock_generate.call_args
-            prompt = call_args.kwargs.get("prompt", "")
+            prompt = call_args.args[0]
             assert "Doc 1" in prompt or "Doc 2" in prompt
 
-    def test_handles_api_error_gracefully(self):
-        with patch("app.agent.genai.generate") as mock_generate:
+    def test_propagates_api_error(self):
+        with patch("app.agent._generate") as mock_generate:
             mock_generate.side_effect = RuntimeError("Internal server error")
 
-            result = run_agent("Test question")
-
-        assert result.steps_taken >= 1
+            with pytest.raises(RuntimeError, match="Internal server error"):
+                run_agent("Test question")

@@ -41,30 +41,40 @@ def submit_job(question: str, user_id: str, documents: list[str] | None = None) 
 
 def poll_until_done(job_id: str, interval: float = 3.0, max_wait: float = 300.0) -> dict:
     """Poll until the job completes or times out."""
-    deadline = time.time() + max_wait
+    start = time.time()
+    deadline = start + max_wait
     attempt = 0
 
-    while time.time() < deadline:
-        attempt += 1
-        response = httpx.get(
-            f"{BASE_URL}/v1/agent/jobs/{job_id}",
-            headers=HEADERS,
-            timeout=10.0,
-        )
-        response.raise_for_status()
-        result = response.json()
-        status = result["status"]
+    # Reuse one client so we don't rebuild an SSL context on every poll.
+    with httpx.Client(headers=HEADERS, timeout=10.0) as client:
+        while time.time() < deadline:
+            attempt += 1
+            elapsed = time.time() - start
+            try:
+                response = client.get(f"{BASE_URL}/v1/agent/jobs/{job_id}")
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    raise RuntimeError("Job not found or its result expired") from exc
+                raise
+            except httpx.RequestError as exc:
+                print(f"   [{attempt}] Connection issue: {exc}. Retrying...")
+                time.sleep(interval)
+                continue
 
-        print(f"   [{attempt}] Status: {status}")
+            result = response.json()
+            status = result["status"]
 
-        if status == "completed":
-            return result
-        elif status == "failed":
-            raise RuntimeError(f"Job failed: {result.get('error', 'Unknown error')}")
-        elif status == "cancelled":
-            raise RuntimeError("Job was cancelled")
+            print(f"   [{attempt}] Status: {status} ({elapsed:.0f}s)")
 
-        time.sleep(interval)
+            if status == "completed":
+                return result
+            elif status == "failed":
+                raise RuntimeError(f"Job failed: {result.get('error', 'Unknown error')}")
+            elif status == "cancelled":
+                raise RuntimeError("Job was cancelled")
+
+            time.sleep(interval)
 
     raise TimeoutError(f"Job {job_id} did not complete within {max_wait}s")
 
@@ -74,7 +84,7 @@ def run(question: str, user_id: str = "script_user") -> None:
     print("-" * 50)
 
     job_id = submit_job(question, user_id)
-    print("\n⏳ Polling for result...")
+    print("\n⏳ Polling for result (Gemini can take 30–120s)...")
 
     result = poll_until_done(job_id)
 
