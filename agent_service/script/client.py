@@ -34,7 +34,7 @@ def submit_job(question: str, user_id: str, documents: list[str] | None = None) 
     )
     response.raise_for_status()
     data = response.json()
-    print(f"✅ Job queued: {data['job_id']}")
+    print(f"Job queued: {data['job_id']}")
     print(f"   Poll URL: {data['poll_url']}")
     return data["job_id"]
 
@@ -80,16 +80,16 @@ def poll_until_done(job_id: str, interval: float = 3.0, max_wait: float = 300.0)
 
 
 def run(question: str, user_id: str = "script_user") -> None:
-    print(f"\n📤 Submitting: {question[:60]}")
+    print(f"\nSubmitting: {question[:60]}")
     print("-" * 50)
 
     job_id = submit_job(question, user_id)
-    print("\n⏳ Polling for result (Gemini can take 30–120s)...")
+    print("\nPolling for result (Gemini can take 30-120s)...")
 
     result = poll_until_done(job_id)
 
     print("\n" + "=" * 50)
-    print("✅ COMPLETED")
+    print("COMPLETED")
     print(f"Answer:    {result['answer']}")
     print(f"Tokens:    {result['input_tokens']} in / {result['output_tokens']} out")
     print(f"Cost:      ${result['cost_usd']:.6f}")

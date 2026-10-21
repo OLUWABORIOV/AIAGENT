@@ -32,9 +32,15 @@ class Settings(BaseSettings):
     # Gemini. Keep the key optional so imports and tests work without a .env;
     # real calls still fail fast when the key is missing.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-3.5-flash"
     gemini_input_price_per_m: float = 0.0
     gemini_output_price_per_m: float = 0.0
+    # Per-request HTTP timeout. Without this a stalled provider call can keep a
+    # job in "running" until the arq job timeout fires.
+    gemini_timeout_secs: int = 30
+    # Attempts made by our own retry loop. The SDK's internal retries are
+    # disabled so the total wall-clock time stays bounded.
+    gemini_max_attempts: int = 3
     # Redis / arq
     redis_url: str = "redis://redis:6379"
     max_jobs_per_user: int = 3      # concurrent job limit

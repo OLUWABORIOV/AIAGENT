@@ -1,5 +1,7 @@
 # app/agent.py
 import ast
+import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import TypedDict, Annotated, Optional
@@ -11,20 +13,63 @@ from langgraph.graph import StateGraph, END
 
 from app.config import settings
 
-_client = None
+logger = logging.getLogger(__name__)
 
-def _get_client():
-    global _client
-    if _client is None:
-        _client = genai.Client(api_key=settings.gemini_api_key)
-    return _client
+# The worker runs jobs in a thread pool. google-genai clients are not safe to
+# share across threads: concurrent calls can close the underlying HTTP client
+# ("Cannot send a request, as the client has been closed"). One client per
+# thread avoids that without creating a new client for every request.
+_thread_local = threading.local()
 
-def _generate(prompt_text: str):
-    return _get_client().models.generate_content(
-        model=settings.gemini_model,
-        contents=prompt_text,
-        config=types.GenerateContentConfig(max_output_tokens=1024),
-    )
+
+def _get_client() -> genai.Client:
+    client = getattr(_thread_local, "client", None)
+    if client is None:
+        client = genai.Client(
+            api_key=settings.gemini_api_key,
+            http_options=types.HttpOptions(
+                timeout=settings.gemini_timeout_secs * 1000,
+                # We do our own retries so a single call cannot silently hang
+                # for minutes inside the SDK's tenacity loop.
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
+        _thread_local.client = client
+    return client
+
+_RETRYABLE_MARKERS = ("503", "429", "unavailable", "resource_exhausted", "timeout", "deadline")
+
+
+def _is_retryable(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return any(marker in message for marker in _RETRYABLE_MARKERS)
+
+
+def _generate(prompt_text: str, max_attempts: int | None = None):
+    """Call Gemini, retrying transient rate-limit/overload errors with backoff."""
+    max_attempts = max_attempts or settings.gemini_max_attempts
+    last_exc = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return _get_client().models.generate_content(
+                model=settings.gemini_model,
+                contents=prompt_text,
+                config=types.GenerateContentConfig(max_output_tokens=1024),
+            )
+        except Exception as exc:
+            last_exc = exc
+            if attempt == max_attempts or not _is_retryable(exc):
+                raise
+            delay = 2 ** (attempt - 1)
+            logger.warning(
+                "gemini_retry attempt=%s/%s delay=%ss error=%s",
+                attempt,
+                max_attempts,
+                delay,
+                exc,
+            )
+            time.sleep(delay)
+    raise last_exc  # pragma: no cover
 
 # ── State ─────────────────────────────────────────────────────────────────────
 class AgentState(TypedDict, total=False):
