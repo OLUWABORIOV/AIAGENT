@@ -1,7 +1,12 @@
 .venv
+.venv-1
 venv
 .git
 .gitignore
 **/*.pyc
 __pycache__
+.pytest_cache
+*.egg-info
+tests
+script
 .env

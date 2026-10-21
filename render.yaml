@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: stillwork-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerContext: ./agent_service
+    dockerfilePath: ./agent_service/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: API_KEYS
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: GEMINI_INPUT_PRICE_PER_M
+        value: "0.0"
+      - key: GEMINI_OUTPUT_PRICE_PER_M
+        value: "0.0"
+      - key: MAX_JOBS_PER_USER
+        value: "3"
+      - key: JOB_TIMEOUT_SECS
+        value: "300"
+      - key: DEBUG
+        value: "false"
+
+  - type: worker
+    name: stillwork-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerContext: ./agent_service
+    dockerfilePath: ./agent_service/Dockerfile
+    dockerCommand: python -m arq app.worker.WorkerSettings
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: GEMINI_INPUT_PRICE_PER_M
+        value: "0.0"
+      - key: GEMINI_OUTPUT_PRICE_PER_M
+        value: "0.0"
+      - key: JOB_TIMEOUT_SECS
+        value: "300"
+      - key: DEBUG
+        value: "false"

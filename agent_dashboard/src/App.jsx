@@ -3,33 +3,77 @@ import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import JobSubmit from "./components/JobSubmit";
 import JobList from "./components/JobList";
+import Login from "./components/Login";
 import { useJobPoller } from "./hooks/useJobPoller";
-import { getHealth } from "./api";
+import { getHealth, getSession, logout } from "./api";
 
 export default function App() {
   const [page, setPage] = useState("dashboard");
   const [apiOnline, setApiOnline] = useState(false);
+  const [authState, setAuthState] = useState("checking");
   const { jobs, addJob, startPolling } = useJobPoller();
 
-  // Check API health every 10 seconds
   useEffect(() => {
+    let active = true;
+    getSession()
+      .then((session) => {
+        if (active) setAuthState(session.authenticated ? "authed" : "locked");
+      })
+      .catch(() => {
+        if (active) setAuthState("locked");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Check API health every 10 seconds, but only after sign-in.
+  useEffect(() => {
+    if (authState !== "authed") {
+      setApiOnline(false);
+      return undefined;
+    }
+
+    let active = true;
     const check = async () => {
       try {
         await getHealth();
-        setApiOnline(true);
+        if (active) setApiOnline(true);
       } catch {
-        setApiOnline(false);
+        if (active) setApiOnline(false);
       }
     };
+
     check();
     const id = setInterval(check, 10_000);
-    return () => clearInterval(id);
-  }, []);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [authState]);
 
   const handleJobSubmit = (job) => {
     addJob(job);
     startPolling(job.job_id);
   };
+
+  const handleLogout = async () => {
+    await logout();
+    setAuthState("locked");
+  };
+
+  if (authState === "checking") {
+    return (
+      <main className="app-loading" aria-live="polite">
+        <span className="loading-dot" />
+        <span>Opening your workspace…</span>
+      </main>
+    );
+  }
+
+  if (authState === "locked") {
+    return <Login onSuccess={() => setAuthState("authed")} />;
+  }
 
   return (
     <div className="app-shell">
@@ -37,6 +81,7 @@ export default function App() {
         active={page}
         setActive={setPage}
         apiStatus={apiOnline ? "online" : "offline"}
+        onLogout={import.meta.env.DEV ? undefined : handleLogout}
       />
 
       <main className="app-main">

@@ -7,35 +7,66 @@ workers live separately in `../agent_service`.
 
 1. Start the backend from `../agent_service` using its README instructions.
    The API should be available at `http://127.0.0.1:8000`.
-2. In a separate terminal, start this frontend:
+2. Copy the local environment file:
 
    ```powershell
    cd agent_dashboard
+   Copy-Item .env.example .env.local
+   ```
+
+3. Start the frontend:
+
+   ```powershell
    npm install
    npm run dev
    ```
 
-3. Open `http://localhost:3000`.
+4. Open `http://localhost:3000`.
 
-Vite forwards `/health` and `/v1/*` requests to the backend on port 8000. The
-backend's configured `API_KEYS` must include the development key used by the
-frontend (`dev-key-123`). Keep real API credentials in the backend's local
-environment, never in frontend source.
+Vite forwards `/api/*` to the backend and adds `BACKEND_API_KEY` on the server.
+The key is never included in the browser bundle. The backend's `API_KEYS` must
+contain the same value. Local development bypasses the login gate; production
+uses it.
 
-## Build and deployment
+`.env.local` is gitignored. Keep real credentials out of `src/`.
 
-Run `npm run build` to create the production frontend in `dist/`. For a
-separately hosted backend, set `VITE_API_URL` to its public base URL in the
-frontend build environment, for example `https://api.example.com`. The browser
-uses that URL directly instead of Vite's local development proxy. The backend
-must allow requests from the deployed frontend origin.
+## Production deployment
 
-The dashboard theme and responsive layout are in `src/index.css`; the custom
-transparent agent emblem is in `public/agent-mark.png`. Both ship with the
-frontend build.
+The frontend is deployed on Vercel. Vercel also runs the `/api` serverless proxy,
+which:
 
-Submitted tasks are saved in the browser tab's `sessionStorage`, so history
-survives a refresh and unfinished tasks resume polling. The browser-tab history
-is cleared when its tab session ends. The backend currently retains individual
-job results for a limited time and exposes an active-job count rather than a
-persistent all-jobs history endpoint; expired results are shown as unavailable.
+- checks the signed `stillwork_session` cookie
+- adds `X-API-Key` server-side
+- forwards requests to the Render API
+
+Set these Vercel environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `BACKEND_URL` | Public Render API URL, no trailing slash |
+| `BACKEND_API_KEY` | Must match the backend `API_KEYS` |
+| `APP_PASSWORD` | Password used on the sign-in screen |
+| `SESSION_SECRET` | Long random value used to sign session cookies |
+
+Do not set `VITE_API_URL` or `VITE_API_KEY` in production.
+
+See `../DEPLOYMENT.md` for the full backend + frontend runbook.
+
+## Build
+
+```powershell
+npm run build
+```
+
+The production build is written to `dist/`. The build contains no backend key;
+the Vercel functions add it at request time.
+
+## How it fits together
+
+```
+Browser -> Vercel dashboard + /api proxy -> Render API -> Redis <- Render worker
+```
+
+There is no long-running work in Vercel: submit requests only enqueue a job, and
+the browser polls for the result. The Gemini call runs in the Render worker,
+where a 30-120 second job is fine.

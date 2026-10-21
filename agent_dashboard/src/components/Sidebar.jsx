@@ -7,7 +7,7 @@ const navigation = [
   { id: "history", label: "Task history", icon: ClipboardList },
 ];
 
-export default function Sidebar({ active, setActive, apiStatus }) {
+export default function Sidebar({ active, setActive, apiStatus, onLogout }) {
   return (
     <aside className="app-sidebar">
       <button className="brand-lockup" onClick={() => setActive("dashboard")} aria-label="Go to overview">
@@ -41,6 +41,11 @@ export default function Sidebar({ active, setActive, apiStatus }) {
         <span><strong>{apiStatus === "online" ? "Agent connected" : "Agent offline"}</strong><small>Service health</small></span>
         <span className="status-ping" />
       </div>
+      {onLogout && (
+        <button className="sidebar-signout" type="button" onClick={onLogout}>
+          Sign out
+        </button>
+      )}
       <div className="sidebar-credit">QUIETLY GET MORE DONE</div>
     </aside>
   );

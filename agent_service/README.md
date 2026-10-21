@@ -229,6 +229,12 @@ pytest tests/test_agent.py::TestRunAgent::test_cost_is_calculated_correctly -v
 
 ## Production Deployment
 
+For a public deployment with the dashboard on Vercel, follow
+[`../DEPLOYMENT.md`](../DEPLOYMENT.md). Vercel hosts the frontend and a
+server-side proxy; this API, the arq worker, and Redis run on Render.
+
+For a single-server deployment with Docker Compose:
+
 ```bash
 # Deploy with production settings
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -253,7 +259,7 @@ All settings are in `.env`. See `.env.example` for the full list.
 | Variable               | Default              | Description                        |
 | ---------------------- | -------------------- | ---------------------------------- |
 | `GEMINI_API_KEY`       | required             | Your Gemini API key                |
-| `GEMINI_MODEL`         | `gemini-3.8-flash`   | Gemini model name                  |
+| `GEMINI_MODEL`         | `gemini-3.5-flash`   | Gemini model name                  |
 | `GEMINI_INPUT_PRICE_PER_M` | `0.0`            | Input price per 1M tokens (USD)     |
 | `GEMINI_OUTPUT_PRICE_PER_M` | `0.0`           | Output price per 1M tokens (USD)    |
 | `API_KEYS`             | empty (reject all)   | Comma-separated valid API keys     |
