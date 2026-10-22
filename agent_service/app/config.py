@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     gemini_max_attempts: int = 3
     # Redis / arq
     redis_url: str = "redis://redis:6379"
+    # Free hosting trick: run the arq worker inside the API process. Keep this
+    # false when using the normal split API/worker Docker deployment.
+    run_inline_worker: bool = False
     max_jobs_per_user: int = 3      # concurrent job limit
     job_timeout_secs: int = 300     # 5 min hard limit per job
     job_ttl_secs: int = 3600        # keep results for 1 hour

@@ -1,4 +1,5 @@
 # app/main.py
+import asyncio
 import json
 import uuid
 import logging
@@ -23,9 +24,56 @@ async def lifespan(app: FastAPI):
     app.state.redis = await aioredis.from_url(settings.redis_url, decode_responses=True)
     app.state.arq   = await create_pool(RedisSettings.from_dsn(settings.redis_url))
     logger.info("Redis connected")
-    yield
-    await app.state.redis.close()
-    await app.state.arq.close()
+
+    inline_worker = None
+    inline_worker_task = None
+    if settings.run_inline_worker:
+        # Single-service deployment mode (e.g. a free Render web service).
+        # The worker shares this event loop; it is still an async arq worker.
+        from arq.worker import Worker
+        from app.worker import WorkerSettings
+
+        inline_worker = Worker(
+            functions=WorkerSettings.functions,
+            redis_settings=WorkerSettings.redis_settings,
+            max_jobs=WorkerSettings.max_jobs,
+            job_timeout=WorkerSettings.job_timeout,
+            keep_result=WorkerSettings.keep_result,
+            handle_signals=False,
+        )
+        inline_worker_task = asyncio.create_task(
+            inline_worker.async_run(), name="inline-arq-worker"
+        )
+
+        def _log_worker_failure(task: asyncio.Task) -> None:
+            if task.cancelled():
+                return
+            error = task.exception()
+            if error:
+                logger.error(
+                    "inline_worker_crashed",
+                    exc_info=(type(error), error, error.__traceback__),
+                )
+
+        inline_worker_task.add_done_callback(_log_worker_failure)
+        logger.info("Inline arq worker started")
+
+    try:
+        yield
+    finally:
+        if inline_worker_task:
+            inline_worker_task.cancel()
+            try:
+                await inline_worker_task
+            except asyncio.CancelledError:
+                pass
+        if inline_worker:
+            try:
+                await inline_worker.close()
+            except Exception:
+                logger.exception("inline_worker_shutdown_failed")
+        await app.state.redis.close()
+        await app.state.arq.close()
 
 # ── App python hello.py
 app = FastAPI(

@@ -231,7 +231,8 @@ pytest tests/test_agent.py::TestRunAgent::test_cost_is_calculated_correctly -v
 
 For a public deployment with the dashboard on Vercel, follow
 [`../DEPLOYMENT.md`](../DEPLOYMENT.md). Vercel hosts the frontend and a
-server-side proxy; this API, the arq worker, and Redis run on Render.
+server-side proxy; this API and an inline arq worker run on a free Render web
+service, with Redis as a separate managed service.
 
 For a single-server deployment with Docker Compose:
 
@@ -264,6 +265,7 @@ All settings are in `.env`. See `.env.example` for the full list.
 | `GEMINI_OUTPUT_PRICE_PER_M` | `0.0`           | Output price per 1M tokens (USD)    |
 | `API_KEYS`             | empty (reject all)   | Comma-separated valid API keys     |
 | `REDIS_URL`            | `redis://redis:6379` | Redis connection string            |
+| `RUN_INLINE_WORKER`    | `false`              | Run arq worker inside API process  |
 | `MAX_JOBS_PER_USER`    | `3`                  | Max concurrent jobs per user       |
 | `JOB_TIMEOUT_SECS`     | `300`                | Kill job after this many seconds   |
 | `MAX_TOKENS_PER_JOB`   | `50000`              | Token budget per job               |
