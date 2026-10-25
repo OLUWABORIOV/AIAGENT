@@ -1,7 +1,8 @@
 # app/config.py
 import json
+from typing import Annotated
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from pydantic import Field, field_validator
 
 class Settings(BaseSettings):
@@ -12,7 +13,10 @@ class Settings(BaseSettings):
 
     # Auth
     api_key_header: str = "X-API-Key"
-    api_keys: list[str] = Field(default_factory=list)
+    # NoDecode keeps pydantic-settings from trying to JSON-decode the raw env
+    # value before the validator below runs. This lets API_KEYS be either a
+    # plain key, a comma-separated list, or a JSON array.
+    api_keys: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
     @field_validator("api_keys", mode="before")
     @classmethod
