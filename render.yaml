@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: stillwork-api
+    name: agent-service-frankfurt
     runtime: python
     plan: free
     region: frankfurt
