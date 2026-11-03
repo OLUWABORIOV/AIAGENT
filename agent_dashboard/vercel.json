@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/proxy?p=health" },
+    { "source": "/api/v1/:path*", "destination": "/api/proxy?p=v1/:path*" }
+  ]
+}
