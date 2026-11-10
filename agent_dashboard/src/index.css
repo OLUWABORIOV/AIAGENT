@@ -1767,29 +1767,13 @@ textarea:focus-visible {
 }
 
 @media (max-width: 780px) {
-  :root { --sidebar-w: 70px; }
-  .app-sidebar { align-items: center; padding: 18px 8px; }
-  .brand-lockup { padding: 0 0 28px; }
-  .brand-name, .sidebar-label, .nav-item > span, .nav-trailing, .sidebar-note, .sidebar-status > span:not(.health-dot), .sidebar-credit { display: none; }
-  .sidebar-nav { width: 100%; }
-  .nav-item { justify-content: center; padding: 0; }
-  .nav-item svg { width: 19px; height: 19px; }
-  .sidebar-status { width: 38px; height: 38px; justify-content: center; padding: 0; }
-  .status-ping { display: none; }
-  .dashboard-columns { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .agent-art { right: -8px; width: 190px; height: 190px; opacity: 0.58; }
-  .hero-note { right: 16px; min-width: 145px; }
-  .submit-layout { grid-template-columns: 1fr; }
-  .submit-aside { grid-template-columns: minmax(0, 1.3fr) minmax(200px, 0.7fr); }
-  .journey { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-  .journey-step { align-items: flex-start; flex-direction: column; }
-  .journey-line { display: none; }
-  .history-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 560px) {
-  .app-shell { display: block; padding-bottom: 66px; }
+  :root { --sidebar-w: 0px; }
+  body { font-size: 14px; }
+  .app-shell {
+    display: block;
+    min-height: 100vh;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
   .app-sidebar {
     position: fixed;
     inset: auto 0 0;
@@ -1797,66 +1781,131 @@ textarea:focus-visible {
     display: block;
     width: 100%;
     min-height: 0;
-    height: 62px;
-    padding: 6px 12px;
+    height: auto;
+    padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
     border-right: 0;
-    background: rgba(244, 236, 223, 0.96);
+    background: rgba(244, 236, 223, 0.97);
     backdrop-filter: blur(14px);
   }
-  .brand-lockup, .sidebar-label, .sidebar-spacer, .sidebar-note, .sidebar-status, .sidebar-credit { display: none; }
-  .sidebar-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0; }
-  .nav-item { display: grid; justify-items: center; gap: 2px; min-height: 48px; padding: 5px 2px; font-size: 8px; }
+  .brand-lockup, .sidebar-label, .sidebar-spacer, .sidebar-note, .sidebar-status, .sidebar-credit, .sidebar-signout { display: none; }
+  .sidebar-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 0; }
+  .nav-item {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-height: 56px;
+    padding: 5px 2px;
+    font-size: 12px;
+    text-align: center;
+  }
   .nav-item > span { display: block; }
   .nav-trailing { display: none; }
-  .nav-item svg { width: 17px; height: 17px; }
-  .dashboard-page { padding: 24px 16px 16px; }
-  .screen-page { padding: 24px 16px 18px; }
-  .page-heading { align-items: flex-start; gap: 12px; }
-  .page-heading h1 { font-size: 27px; }
-  .page-heading p { max-width: 255px; line-height: 1.55; }
-  .page-heading .button { width: 40px; height: 40px; min-width: 40px; padding: 0; overflow: hidden; font-size: 0; }
-  .page-heading .button i { font-size: 16px; }
-  .agent-hero { min-height: 270px; align-items: flex-start; padding: 25px 21px; }
-  .hero-copy { max-width: 78%; }
-  .hero-copy h2 { font-size: 29px; }
-  .hero-copy p { max-width: 245px; font-size: 10px; }
-  .agent-art { right: -13px; bottom: -43px; width: 185px; height: 185px; opacity: 0.66; }
-  .hero-note { right: auto; bottom: 14px; left: 20px; min-width: 155px; padding: 9px 11px; }
-  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
-  .stat-card { min-height: 91px; padding: 13px; }
-  .stat-icon { top: 12px; right: 13px; width: 25px; height: 25px; }
-  .stat-label { margin-top: 12px; }
-  .stat-value { font-size: 21px; }
-  .panel { padding: 15px; }
-  .dashboard-footer { padding: 14px 1px; font-size: 8px; }
-  .screen-heading { align-items: flex-start; gap: 10px; margin-bottom: 18px; }
-  .screen-heading h1 { font-size: 28px; }
-  .screen-heading p { max-width: 290px; font-size: 10px; }
-  .screen-heading-note { max-width: 133px; padding: 7px 8px; font-size: 8px; white-space: normal; }
-  .screen-heading > .button { min-height: 37px; padding: 0 10px; font-size: 9px; }
-  .submit-card { padding: 18px; }
+  .nav-item svg { width: 20px; height: 20px; }
+  .app-main { min-height: 100vh; }
+  .dashboard-columns { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .agent-art { right: -8px; width: 170px; height: 170px; opacity: 0.52; }
+  .hero-note { right: 16px; min-width: 145px; }
+  .submit-layout { grid-template-columns: 1fr; }
   .submit-aside { grid-template-columns: 1fr; }
   .journey { grid-template-columns: 1fr; gap: 0; }
   .journey-step { align-items: center; flex-direction: row; }
   .journey-line { display: block; }
-  .submit-form-footer { align-items: flex-start; flex-direction: column; }
-  .submit-button { width: 100%; }
-  .history-summary { gap: 7px; }
-  .history-summary > div { min-height: 61px; gap: 7px; padding: 9px; }
-  .history-summary-icon { width: 26px; height: 26px; flex-basis: 26px; }
+  .history-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-page { padding: 26px 22px 24px; }
+  .screen-page { padding: 26px 22px 24px; }
+  .page-heading,
+  .screen-heading { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .page-heading { margin-bottom: 20px; }
+  .page-heading h1 { font-size: 30px; }
+  .page-heading p,
+  .screen-heading p { max-width: 100%; font-size: 14px; line-height: 1.55; }
+  .page-heading .button,
+  .screen-heading > .button { width: 100%; min-height: 48px; font-size: 14px; }
+  .agent-hero { min-height: 265px; align-items: flex-start; padding: 26px 24px; }
+  .hero-copy { max-width: min(100%, 430px); }
+  .hero-copy h2 { font-size: 34px; }
+  .hero-copy p { max-width: 340px; font-size: 14px; line-height: 1.55; }
+  .button-cream { min-height: 46px; margin-top: 16px; font-size: 14px; }
+  .agent-art { right: -16px; bottom: -34px; width: 160px; height: 160px; opacity: 0.35; }
+  .hero-note { display: none; }
+  .stats-grid { gap: 10px; margin: 14px 0; }
+  .stat-card { min-height: 100px; padding: 15px; }
+  .stat-icon { top: 13px; right: 14px; width: 28px; height: 28px; }
+  .stat-label { margin-top: 14px; font-size: 13px; }
+  .stat-value { font-size: 24px; }
+  .panel { padding: 18px; }
+  .panel-heading h2 { font-size: 21px; }
+  .text-button { min-height: 44px; font-size: 14px; }
+  .empty-state p { font-size: 14px; }
+  .recent-row { min-height: 60px; }
+  .recent-description strong { font-size: 14px; }
+  .recent-description small { font-size: 12px; }
+  .service-details > div { font-size: 14px; }
+  .route-row code { font-size: 12px; }
+  .route-purpose { font-size: 12px; }
+  .dashboard-footer { padding: 16px 2px 0; font-size: 12px; }
+  .screen-heading { margin-bottom: 20px; }
+  .screen-heading h1 { font-size: 32px; }
+  .screen-heading-note { max-width: 100%; min-height: 40px; padding: 9px 11px; font-size: 12px; }
+  .submit-card { padding: 22px; }
+  .form-section-heading small { font-size: 14px; }
+  .field-label { font-size: 14px; }
+  .task-textarea { min-height: 180px; padding: 14px; font-size: 16px; }
+  .workspace-input { height: 48px; font-size: 16px; }
+  .input-footnote,
+  .field-help,
+  .submit-form-footer > span { font-size: 12px; }
+  .suggestions-label { font-size: 11px; }
+  .suggestion-chip { min-height: 44px; padding: 9px 11px; font-size: 13px; }
+  .submit-form-footer { align-items: stretch; flex-direction: column; }
+  .submit-button { width: 100%; min-height: 48px; font-size: 14px; }
+  .history-summary { gap: 9px; }
+  .history-summary > div { min-height: 68px; gap: 9px; padding: 11px; }
+  .history-summary-icon { width: 30px; height: 30px; flex-basis: 30px; }
   .history-summary .history-cost { grid-column: span 2; }
-  .history-toolbar { align-items: stretch; flex-direction: column; gap: 9px; padding: 11px; }
+  .history-toolbar { align-items: stretch; flex-direction: column; gap: 10px; padding: 13px; }
   .history-filter-list { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
-  .history-filter { flex: 0 0 auto; }
-  .history-search { width: 100%; min-width: 0; }
-  .task-card-main { gap: 8px; padding: 11px 9px; }
-  .task-card-icon { width: 29px; height: 29px; flex-basis: 29px; }
-  .task-card-copy strong { font-size: 9px; }
-  .task-card-main .status-pill { gap: 4px; padding: 4px 6px; font-size: 8px; }
+  .history-filter { flex: 0 0 auto; min-height: 44px; }
+  .history-search { width: 100%; min-width: 0; min-height: 44px; }
+  .task-card-main { min-height: 60px; gap: 8px; padding: 11px 9px; }
+  .task-card-icon { width: 32px; height: 32px; flex-basis: 32px; }
+  .task-card-copy strong { font-size: 14px; }
+  .task-card-main .status-pill { gap: 4px; padding: 6px 8px; font-size: 11px; }
   .task-cost { display: none; }
   .task-details-wrap { padding-right: 12px; padding-left: 46px; }
-  .history-empty { min-height: 285px; }
+}
+
+@media (max-width: 560px) {
+  .dashboard-page { padding: 22px 16px 24px; }
+  .screen-page { padding: 22px 16px 24px; }
+  .page-heading h1 { font-size: 28px; }
+  .page-heading p { max-width: 100%; }
+  .agent-hero { min-height: 280px; padding: 24px 20px; }
+  .hero-copy { max-width: 100%; }
+  .hero-copy h2 { font-size: 31px; }
+  .hero-copy p { max-width: 280px; }
+  .agent-art { right: -22px; bottom: -40px; width: 145px; height: 145px; opacity: 0.3; }
+  .stats-grid { gap: 8px; }
+  .stat-card { min-height: 94px; padding: 13px; }
+  .stat-icon { top: 11px; right: 11px; width: 26px; height: 26px; }
+  .stat-label { max-width: calc(100% - 25px); font-size: 12px; }
+  .stat-value { font-size: 22px; }
+  .panel { padding: 16px; }
+  .dashboard-footer { gap: 8px; font-size: 10px; }
+  .screen-heading h1 { font-size: 29px; }
+  .screen-heading-note { font-size: 11px; }
+  .submit-card { padding: 18px; }
+  .success-actions { align-items: stretch; flex-direction: column; }
+  .success-actions .button { width: 100%; min-height: 48px; }
+  .history-summary > div { min-height: 64px; gap: 7px; padding: 9px; }
+  .history-search { padding: 0 10px; }
+  .task-card-main { gap: 7px; padding: 10px 8px; }
+  .task-card-copy strong { font-size: 13px; }
+  .task-card-main .status-pill { padding: 5px 6px; font-size: 10px; }
+  .task-details-wrap { padding-right: 10px; padding-left: 42px; }
 }
 
 /* Sign-in and app boot states */
